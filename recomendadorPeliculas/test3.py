@@ -1,113 +1,108 @@
 import networkx as nx
-import random
-import ollama  # Importamos la librería Ollama
+import time
+from tqdm import tqdm
+import ollama
 
 # ----------------------------
 # GRAFO DE GÉNEROS Y PELÍCULAS
 # ----------------------------
 G = nx.Graph()
-
 generos = {
-    "accion": [],
-    "comedia": [],
-    "drama": [],
-    "terror": [],
-    "ciencia ficcion": [],
-    "romance": [],
-    "aventura": [],
-    "fantasia": []
+    "accion": [], "comedia": [], "drama": [], "terror": [],
+    "ciencia ficcion": [], "romance": [], "aventura": [], "fantasia": []
 }
-
 for genero in generos:
     G.add_node(genero, tipo="genero")
 
 # ----------------------------
-# PREGUNTAS PARA EL PERFIL (VERSIÓN MEJORADA)
+# PREGUNTAS MEJORADAS
 # ----------------------------
 def hacer_preguntas():
-    print("\n🎬 Bienvenido al recomendador de películas 2.0\n")
-    print("Responde con 'si' o 'no' a las siguientes preguntas:\n")
-
-    # Puntos base + preguntas ponderadas (algunas valen más)
-    puntos = {genero: 0 for genero in generos}
+    print("\n🎬 Bienvenido al recomendador de películas\n")
+    puntos = {g: 0 for g in generos}
     
-    preguntas_ponderadas = [
-        # (Pregunta, Género, Peso)
-        ("¿Te gustan las películas con intensas escenas de acción como 'John Wick' o 'Mad Max'?", "accion", 2),
-        ("¿Prefieres comedias inteligentes tipo 'Los Bridgerton' sobre comedias slapstick?", "comedia", 1),
-        ("¿Disfrutas dramas emocionales profundos como 'El Padrino' o 'Forrest Gump'?", "drama", 1.5),
-        ("¿Buscas sustos intensos como en 'El Conjuro' más que terror psicológico?", "terror", 1),
-        ("¿Te interesa la ciencia ficción dura como 'Interstellar' o 'Blade Runner'?", "ciencia ficcion", 1.5),
-        ("¿Prefieres historias de amor realistas tipo 'Antes del Amanecer' sobre romances fantásticos?", "romance", 1),
-        ("¿Te entusiasman las aventuras épicas como 'Indiana Jones' o 'Jurassic Park'?", "aventura", 1),
-        ("¿Adoras mundos de fantasía complejos como 'El Señor de los Anillos'?", "fantasia", 2),
-        ("¿Eres fan de las películas de artes marciales o peleas coreografiadas?", "accion", 1.5),
-        ("¿Ries fácilmente con comedias absurdas como 'Superbad' o 'The Hangover'?", "comedia", 1),
+    preguntas = [
+        ("¿Te gustan escenas de acción intensas como 'John Wick'?", "accion", 2),
+        ("¿Prefieres comedias inteligentes tipo 'Los Bridgerton'?", "comedia", 1),
+        ("¿Disfrutas dramas profundos como 'El Padrino'?", "drama", 1.5),
+        ("¿Buscas sustos como en 'El Conjuro'?", "terror", 1),
+        ("¿Te interesa ciencia ficción como 'Interstellar'?", "ciencia ficcion", 1.5),
+        ("¿Prefieres romances realistas?", "romance", 1),
+        ("¿Te gustan aventuras como 'Indiana Jones'?", "aventura", 1),
+        ("¿Adoras fantasía como 'El Señor de los Anillos'?", "fantasia", 2)
     ]
 
-    for pregunta, genero, peso in preguntas_ponderadas:
+    for pregunta, genero, peso in preguntas:
         while True:
-            respuesta = input(f"{pregunta} (si/no): ").strip().lower()
+            respuesta = input(f"{pregunta} (si/no): ").lower().strip()
             if respuesta in ["si", "no"]:
+                if respuesta == "si":
+                    puntos[genero] += peso
                 break
-            print("⚠️ Por favor, responde solo 'si' o 'no'")
-        
-        if respuesta == "si":
-            puntos[genero] += peso  # Suma puntos ponderados
+            print("⚠️ Responde solo 'si' o 'no'")
 
-    # Detección de empates
     max_puntos = max(puntos.values())
     generos_favoritos = [g for g, p in puntos.items() if p == max_puntos]
     
     if len(generos_favoritos) > 1:
-        print(f"\n🔥 ¡Hay empate entre {', '.join(generos_favoritos)}!")
-        genero_favorito = input("¿Cuál prefieres? (escribe el género): ").lower()
+        print(f"\n🔥 Empate entre {', '.join(generos_favoritos)}")
+        genero_favorito = input("Elige tu género preferido: ").lower()
     else:
         genero_favorito = generos_favoritos[0]
     
     return genero_favorito
 
 # ----------------------------
-# FUNCIÓN DE RECOMENDACIÓN EN ESPAÑOL
+# CONFIGURACIÓN RÁPIDA
 # ----------------------------
-def recomendar_peliculas_ia(genero):
+MODELO = "llama3"  # Modelo por defecto (usa :8b para versión ligera)
+PROMPT = """Responde EN ESPAÑOL. Recomienda 3 películas de {genero} con:
+1. **Título** (Año)
+- *Sinopsis:* Breve descripción
+- *Por qué verla:* Razón personalizada"""
+
+# ----------------------------
+# FUNCIÓN OPTIMIZADA
+# ----------------------------
+def recomendar_peliculas(genero):
     try:
-        prompt = f"""Recomienda EXACTAMENTE 5 películas del género {genero} en español. 
-        Para cada una, incluye SOLO:
-        1. **Título** (Año)
-        - *Sinopsis:* Breve descripción (1 línea)
-        - *Por qué te gustará:* Razón personalizada
-        
-        Evita películas demasiado obvias. Ejemplo:
-        
-        **El Secreto de sus Ojos** (2009)
-        - *Sinopsis:* Un thriller judicial sobre un crimen no resuelto.
-        - *Por qué te gustará:* Perfecta si disfrutas dramas con giros inesperados.
-        """
+        # Barra de progreso visual
+        for _ in tqdm(range(15), desc="Buscando recomendaciones"):
+            time.sleep(0.01)
         
         response = ollama.chat(
-            model="llama3",  # Asegúrate de usar un modelo en español
-            messages=[{"role": "user", "content": prompt}],
+            model=MODELO,
+            messages=[{
+                "role": "user",
+                "content": PROMPT.format(genero=genero)
+            }],
             options={
-                'temperature': 0.8,  # Creatividad balanceada
-                'num_predict': 300,     # Contexto amplio para respuestas detalladas
-                'seed': 42           # Semilla fija para consistencia
+                'temperature': 0.5,
+                'num_predict': 250
             }
         )
         return response['message']['content']
     
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: {str(e)}\n⚠️ ¿Tienes Ollama instalado y el modelo descargado?"
 
 # ----------------------------
 # PROGRAMA PRINCIPAL
 # ----------------------------
 if __name__ == "__main__":
-    genero_favorito = hacer_preguntas()  # Tu función existente
+    # Verificación inicial
+    try:
+        ollama.list()
+    except:
+        print("❌ Ollama no está corriendo. Ejecuta primero 'ollama serve'")
+        exit()
+
+    genero = hacer_preguntas()
+    print(f"\n🎯 Tu género favorito: {genero.upper()}")
     
-    print(f"\n🎬 Generando 5 recomendaciones de {genero_favorito.upper()}...")
-    print("⏳ Esto puede tomar unos segundos...\n")
+    start_time = time.time()
+    recomendaciones = recomendar_peliculas(genero)
     
-    recomendaciones = recomendar_peliculas_ia(genero_favorito)
-    print("🔥 RECOMENDACIONES PERSONALIZADAS:")
+    print("\n🍿 RECOMENDACIONES:")
     print(recomendaciones)
+    print(f"\n⏱ Tiempo: {time.time() - start_time:.1f} segundos")
