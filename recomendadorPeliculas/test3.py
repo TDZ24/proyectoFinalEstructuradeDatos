@@ -1,11 +1,10 @@
 import networkx as nx
 import time
+import random
 from tqdm import tqdm
 import ollama
 
-# ----------------------------
-# GRAFO DE GÉNEROS Y PELÍCULAS
-# ----------------------------
+# Grafo para los generos de peliculas
 G = nx.Graph()
 generos = {
     "accion": [], "comedia": [], "drama": [], "terror": [],
@@ -14,9 +13,7 @@ generos = {
 for genero in generos:
     G.add_node(genero, tipo="genero")
 
-# ----------------------------
-# PREGUNTAS MEJORADAS
-# ----------------------------
+# Funcion para hacer las preguntas 
 def hacer_preguntas():
     print("\n🎬 Bienvenido al recomendador de películas\n")
     puntos = {g: 0 for g in generos}
@@ -52,45 +49,58 @@ def hacer_preguntas():
     
     return genero_favorito
 
-# ----------------------------
-# CONFIGURACIÓN RÁPIDA
-# ----------------------------
-MODELO = "llama3"  # Modelo por defecto (usa :8b para versión ligera)
-PROMPT = """Responde EN ESPAÑOL. Recomienda 3 películas de {genero} con:
-1. **Título** (Año)
-- *Sinopsis:* Breve descripción
-- *Por qué verla:* Razón personalizada"""
 
-# ----------------------------
-# FUNCIÓN OPTIMIZADA
-# ----------------------------
+# Configuracion del promp
+
+MODELO = "llama3"  
+PROMPT = """Responde EN ESPAÑOL. Recomienda 3 películas {aleatoriedad} del género {genero} que no sean las típicas. Para cada una:
+1. **Título** (Año)
+- *Sinopsis:* 1 línea máxima
+- *Dato curioso:* Algo interesante
+- *Similar a:* Otra película parecida
+
+Ejemplo:
+1. **Coherence** (2013)
+- *Sinopsis:* Una cena se transforma por un fenómeno cuántico.
+- *Dato curioso:* Filmada en 5 noches con guión improvisado.
+- *Similar a:* The Invitation"""
+
+
+# Funcion para que actue el prompt
 def recomendar_peliculas(genero):
     try:
-        # Barra de progreso visual
-        for _ in tqdm(range(15), desc="Buscando recomendaciones"):
-            time.sleep(0.01)
+        # Añade aleatoriedad al prompt
+        aleatoriedades = [
+            "poco convencionales",
+            "que rara vez te recomiendan",
+            "con giros inesperados"
+        ]
+        prompt_aleatorio = PROMPT.format(
+            genero=genero,
+            aleatoriedad=random.choice(aleatoriedades)
+        )
         
+        # Configuración para mayor creatividad
         response = ollama.chat(
             model=MODELO,
             messages=[{
                 "role": "user",
-                "content": PROMPT.format(genero=genero)
+                "content": prompt_aleatorio
             }],
             options={
-                'temperature': 0.5,
-                'num_predict': 250
+                'temperature': 0.8,  # Más alto = más aleatorio (rango 0-1)
+                'num_predict': 400,  # Más espacio para respuestas largas
+                'seed': random.randint(1, 1000)  # Semilla aleatoria
             }
         )
         return response['message']['content']
     
     except Exception as e:
-        return f"Error: {str(e)}\n⚠️ ¿Tienes Ollama instalado y el modelo descargado?"
+        return f"Error: {str(e)}"
 
-# ----------------------------
-# PROGRAMA PRINCIPAL
-# ----------------------------
+
+# main
 if __name__ == "__main__":
-    # Verificación inicial
     try:
         ollama.list()
     except:
